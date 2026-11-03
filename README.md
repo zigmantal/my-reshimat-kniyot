@@ -4,31 +4,22 @@
 מוצרים קבוע ממוין לפי קטגוריות, יצירת רשימה חדשה מתוכו, פרסום שלה
 לצפייה/עריכה חיה של כל בני המשפחה, וסימון פריטים כנרכשו.
 
-נבנתה עם **React + TypeScript + Vite** ו-**Firebase** (Firestore + Auth)
-כ-backend, במבנה שתואם איך ש-[Google AI Studio](https://aistudio.google.com/apps)
-בונה ומריץ אפליקציות (אותו דפוס בדיוק שעבד "מהקופסה" באפליקציה קודמת
-שבניתם שם — התחברות Google ללא שום הגדרת OAuth ידנית).
+נבנתה עם **React + TypeScript + Vite** ו-**Supabase** (Postgres + Auth +
+Realtime) כ-backend. מיועדת לפיתוח/סנכרון דרך [Google AI
+Studio](https://aistudio.google.com/apps).
 
 ## 🧱 ארכיטקטורה בקצרה
 
-- **Auth**: התחברות עם Google (Firebase Auth), מוגבלת לרשימת מיילים
-  סגורה של בני המשפחה (ראו למטה). ב-Firebase, Google Sign-In מופעל
-  כברירת מחדל ברוב הפרויקטים שנוצרים דרך AI Studio — בניגוד ל-OAuth
-  providers חיצוניים שדורשים הגדרה ידנית.
-- **DB**: Firestore עם 3 אוספים (collections) בשורש — `categories`,
-  `catalogItems`, `lists` — ותת-אוסף `items` בתוך כל רשימה
-  (`lists/{listId}/items/{itemId}`).
-- **הרשאות**: נאכפות ב-Firestore Security Rules (`firestore.rules`) —
-  רק מי שהמייל שלו ברשימה המורשית יכול לקרוא/לכתוב.
-- **עדכונים חיים**: Firestore `onSnapshot` על רשימות ופריטים, כך שכל
-  בני המשפחה רואים שינויים מיידית.
+- **Auth**: התחברות עם Google, מוגבלת לרשימת מיילים סגורה (ראו למטה).
+- **DB**: Supabase Postgres עם 4 טבלאות — `categories`, `catalog_items`,
+  `lists`, `list_items`. ההרשאות נאכפות ב-Row Level Security: רק מי
+  שהמייל שלו ברשימה המורשית יכול לקרוא/לכתוב.
+- **Realtime**: עדכונים חיים על רשימות ופריטים (Supabase Realtime), כדי
+  שכולם יראו שינויים מיידית.
 - **4 מסכים**: התחברות, בית (רשימות פעילות/היסטוריה), צפייה ברשימה,
   יצירת רשימה חדשה.
-- **זריעת נתונים**: בפעם הראשונה שמישהו מתחבר ואוסף ה-`categories` ריק,
-  האפליקציה מזריעה אוטומטית ~14 קטגוריות ו-~55 מוצרים נפוצים
-  (`src/seedDatabase.ts`). לא קורה שוב לאחר מכן.
 
-החלטות העיצוב המלאות (מה כן/לא נכנס ל-v1) נמצאות בשיחה שבה נבנה
+פרטי ההחלטות המלאים (מה כן/לא נכנס ל-v1) נמצאים בשיחה שבה נבנה
 הפרויקט — זה סיכום קצר:
 
 - כל בן משפחה יכול להוסיף/לערוך פריטים וקטגוריות בקטלוג (קטלוג פתוח).
@@ -37,37 +28,52 @@
 - אין טיפול אופליין ואין התראות Push ב-v1.
 - מחיקות (רשימה/פריט) פתוחות לכולם עם דיאלוג אישור בלבד, בלי סל מיחזור.
 
-## ⚙️ הגדרה ראשונית
+## ⚙️ הגדרה ראשונית (חד פעמי)
 
-### 1. חיבור ל-Firebase דרך AI Studio
+### 1. חיבור Google OAuth ב-Supabase
 
-פתחו את הפרויקט ב-[AI Studio Build](https://aistudio.google.com/apps)
-וסנכרנו אותו מול ריפו ה-GitHub הזה. כשתשתמשו שם בתכונה שדורשת
-backend (Auth/Firestore), AI Studio אמור **ליצור פרויקט Firebase
-אוטומטית** ולהחליף את `firebase-applet-config.json` (שכרגע מכיל ערכי
-placeholder) בערכים האמיתיים — בדיוק כמו שקרה באפליקציה הקודמת שלכם.
+זה הצעד היחיד שלא ניתן לבצע אוטומטית וצריך לעשות ידנית בקונסולת
+Supabase (וב-Google Cloud):
 
-אם זה לא קורה אוטומטית, אפשר גם ידנית:
-1. [Firebase Console](https://console.firebase.google.com/) → Add project.
-2. Build → Authentication → Sign-in method → הפעילו **Google** (בד״כ
-   צעד של לחיצה אחת, בלי הגדרת OAuth client נפרד).
-3. Build → Firestore Database → צרו מסד נתונים.
-4. Project settings → הוסיפו Web App → העתיקו את אובייקט ה-config
-   ל-`firebase-applet-config.json` בשורש הריפו.
+1. ב-[Google Cloud Console](https://console.cloud.google.com/apis/credentials)
+   צרו **OAuth client ID** מסוג "Web application".
+2. כתובת ה-redirect שיש להוסיף שם:
+   `https://pnvrmlowwxnmjrcvhylb.supabase.co/auth/v1/callback`
+3. העתיקו את ה-Client ID וה-Client secret.
+4. ב-[Supabase Dashboard](https://supabase.com/dashboard/project/pnvrmlowwxnmjrcvhylb/auth/providers) → Authentication → Providers → **Google** →
+   הדביקו את הפרטים והפעילו (Enable).
+5. תחת Authentication → URL Configuration, הוסיפו את הכתובת שבה
+   תריצו/תפרסמו את האפליקציה (למשל כתובת ה-AI Studio preview, או
+   `http://localhost:5173` לפיתוח מקומי) לרשימת ה-Redirect URLs.
 
-### 2. פרסום Firestore Security Rules
-
-**זה צעד חובה** — בלעדיו אף אחד לא יוכל לקרוא/לכתוב נתונים (או שכולם
-יוכלו, תלוי בברירת המחדל). ב-Firebase Console → Firestore Database →
-Rules, הדביקו את תוכן הקובץ `firestore.rules` ולחצו Publish.
-
-### 3. רשימת בני המשפחה המורשים
+### 2. רשימת בני המשפחה המורשים
 
 ערכו **שני מקומות** (שניהם חייבים להיות מסונכרנים):
 
 - `src/allowedMembers.ts` — משפיע על חוויית המשתמש בצד הלקוח.
-- `firestore.rules` (הפונקציה `isFamilyMember()`) — האכיפה האמיתית
-  בצד השרת. אחרי עריכה יש לפרסם מחדש (Publish) ב-Firebase Console.
+- פונקציית ה-DB `is_family_member()` — האכיפה האמיתית. ניתן לערוך אותה
+  ישירות ב-SQL editor של Supabase:
+
+  ```sql
+  create or replace function public.is_family_member()
+  returns boolean
+  language sql stable security definer set search_path = public
+  as $$
+    select coalesce(auth.jwt() ->> 'email', '') in (
+      'zigman.tal@gmail.com',
+      'spouse@example.com',
+      'kid@example.com'
+    );
+  $$;
+  ```
+
+  (קובץ `supabase/schema.sql` מתעד את מצב הסכמה הנוכחי.)
+
+### 3. משתני סביבה (לא חובה)
+
+ברירות המחדל בקוד (`src/supabase.ts`) כבר מצביעות על פרויקט ה-Supabase
+שהוקם. אם תרצו להשתמש בפרויקט אחר, העתיקו את `.env.example` ל-`.env.local`
+ועדכנו את הערכים.
 
 ## 💻 פיתוח מקומי
 
@@ -76,31 +82,37 @@ npm install
 npm run dev
 ```
 
-האפליקציה תרוץ על `http://localhost:5173`. ודאו ש-`firebase-applet-config.json`
-מכיל ערכי פרויקט אמיתיים (לא placeholder) לפני הרצה מקומית, אחרת
-ההתחברות/הנתונים לא יעבדו.
+האפליקציה תרוץ על `http://localhost:5173`. ודאו שכתובת זו נמצאת ברשימת
+ה-Redirect URLs ב-Supabase (שלב 1 למעלה) כדי שההתחברות עם Google תעבוד.
+
+## 🚀 סנכרון ל-Google AI Studio
+
+1. פתחו את הפרויקט ב-[AI Studio Build](https://aistudio.google.com/apps)
+   וסנכרנו אותו מול ריפו ה-GitHub הזה.
+2. ודאו שכתובת ה-preview/deploy של AI Studio מתווספת ל-Redirect URLs
+   ב-Supabase Auth, אחרת ההתחברות עם Google תיכשל שם.
+3. אין build-time secrets נדרשים — ה-URL וה-anon key של Supabase גלויים
+   מטבעם (מוגנים ע״י RLS), כך שהאפליקציה תעבוד "as-is" לאחר הסנכרון.
 
 ## 📁 מבנה הפרויקט
 
 ```
-firebase-applet-config.json   # הגדרות פרויקט Firebase (מוחלף אוטומטית ע״י AI Studio)
-firestore.rules               # כללי אבטחה — הדביקו ל-Firebase Console
 src/
-  allowedMembers.ts    # רשימת מיילים מורשים (עריכה ידנית, צד לקוח)
-  firebase.ts          # לקוח Firebase (Auth + Firestore) + helpers להתחברות
-  seedData.ts           # תוכן הזריעה (קטגוריות + מוצרים)
-  seedDatabase.ts        # לוגיקת הזריעה החד-פעמית
-  types.ts              # טיפוסי TypeScript
-  AuthContext.tsx        # מצב התחברות גלובלי
-  App.tsx / main.tsx     # נתיבים (routing) ונקודת כניסה
-  hooks/                  # גישה לנתונים (Firestore, כולל realtime)
-  components/             # CatalogPicker, TopBar
-  screens/                # 4 המסכים
+  allowedMembers.ts   # רשימת מיילים מורשים (עריכה ידנית)
+  supabase.ts         # לקוח Supabase + helpers להתחברות
+  types.ts            # טיפוסי TypeScript התואמים לסכמה
+  AuthContext.tsx      # מצב התחברות גלובלי
+  App.tsx / main.tsx   # נתיבים (routing) ונקודת כניסה
+  hooks/                # גישה לנתונים (כולל realtime)
+  components/           # CatalogPicker, TopBar
+  screens/              # 4 המסכים
+supabase/
+  schema.sql            # תיעוד הסכמה + RLS (כבר הוחל בפועל)
 ```
 
 ## 🗺️ רעיונות להמשך (לא ב-v1)
 
 - העלאת תמונות אמיתיות למוצרים.
 - התראות Push כשמתווסף פריט לרשימה פעילה.
-- תמיכה אופליין מלאה (קל להוסיף עם Firestore persistence אם תרצו).
-- מסך ניהול בני משפחה (במקום עריכת קוד).
+- תמיכה אופליין מלאה.
+- מסך ניהול בני משפחה (במקום עריכת קוד/SQL).

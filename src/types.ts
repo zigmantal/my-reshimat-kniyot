@@ -1,20 +1,20 @@
 export interface Category {
   id: string;
   name: string;
-  sortOrder: number;
+  sort_order: number;
   icon: string | null;
-  createdByEmail: string | null;
-  createdAt: number; // epoch millis
+  created_by_email: string | null;
+  created_at: string;
 }
 
 export interface CatalogItem {
   id: string;
   name: string;
-  categoryId: string | null;
-  brandOrNote: string | null;
-  defaultUnit: string | null;
-  createdByEmail: string | null;
-  createdAt: number;
+  category_id: string | null;
+  brand_or_note: string | null;
+  default_unit: string | null;
+  created_by_email: string | null;
+  created_at: string;
 }
 
 export type ListStatus = 'active' | 'done';
@@ -23,23 +23,23 @@ export interface ShoppingList {
   id: string;
   title: string | null;
   status: ListStatus;
-  createdByEmail: string | null;
-  createdByName: string | null;
-  createdAt: number;
-  completedAt: number | null;
+  created_by_email: string | null;
+  created_by_name: string | null;
+  created_at: string;
+  completed_at: string | null;
 }
 
 export interface ListItem {
   id: string;
-  listId: string;
-  catalogItemId: string | null;
-  nameSnapshot: string;
-  categoryId: string | null;
-  categoryNameSnapshot: string | null;
-  brandOrNote: string | null;
+  list_id: string;
+  catalog_item_id: string | null;
+  name_snapshot: string;
+  category_id: string | null;
+  category_name_snapshot: string | null;
+  brand_or_note: string | null;
   quantity: number;
   unit: string | null;
   checked: boolean;
-  addedByEmail: string | null;
-  createdAt: number;
+  added_by_email: string | null;
+  created_at: string;
 }

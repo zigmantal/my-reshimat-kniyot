@@ -1,4 +1,4 @@
-import { signInWithGoogle, signOut } from '../firebase';
+import { signInWithGoogle, signOut } from '../supabase';
 
 export default function LoginScreen({ blocked = false }: { blocked?: boolean }) {
   return (

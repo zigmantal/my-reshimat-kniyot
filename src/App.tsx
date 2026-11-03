@@ -1,7 +1,5 @@
-import { useEffect } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { useAuth } from './AuthContext';
-import { seedDatabaseIfEmpty } from './seedDatabase';
 import LoginScreen from './screens/LoginScreen';
 import HomeScreen from './screens/HomeScreen';
 import ListViewScreen from './screens/ListViewScreen';
@@ -10,12 +8,6 @@ import TopBar from './components/TopBar';
 
 export default function App() {
   const { loading, user, isBlocked } = useAuth();
-
-  useEffect(() => {
-    if (user && !isBlocked) {
-      seedDatabaseIfEmpty(user.email).catch((err) => console.error('Seed failed:', err));
-    }
-  }, [user, isBlocked]);
 
   if (loading) {
     return (

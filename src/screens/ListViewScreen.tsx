@@ -23,7 +23,7 @@ export default function ListViewScreen() {
   const grouped = useMemo(() => {
     const map = new Map<string, typeof items>();
     for (const li of items) {
-      const key = li.categoryNameSnapshot || 'אחר';
+      const key = li.category_name_snapshot || 'אחר';
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(li);
     }
@@ -47,7 +47,7 @@ export default function ListViewScreen() {
   }
 
   const isDone = list.status === 'done';
-  const pickedIds = new Set(items.filter((i) => i.catalogItemId).map((i) => i.catalogItemId!));
+  const pickedIds = new Set(items.filter((i) => i.catalog_item_id).map((i) => i.catalog_item_id!));
 
   async function handlePick(item: CatalogItem) {
     if (!listId) return;
@@ -55,12 +55,12 @@ export default function ListViewScreen() {
     await addQuickItem({
       listId,
       nameSnapshot: item.name,
-      categoryId: item.categoryId,
-      categoryNameSnapshot: item.categoryId ? categoryMap.get(item.categoryId) ?? null : null,
+      categoryId: item.category_id,
+      categoryNameSnapshot: item.category_id ? categoryMap.get(item.category_id) ?? null : null,
       catalogItemId: item.id,
-      brandOrNote: item.brandOrNote,
+      brandOrNote: item.brand_or_note,
       quantity: 1,
-      unit: item.defaultUnit,
+      unit: item.default_unit,
       email,
     });
   }
@@ -84,8 +84,8 @@ export default function ListViewScreen() {
         <div>
           <h1>{formatListTitle(list)}</h1>
           <p className="list-view-meta">
-            {list.createdByName ? `נוצרה ע״י ${list.createdByName} · ` : ''}
-            {formatDateTime(list.createdAt)}
+            {list.created_by_name ? `נוצרה ע״י ${list.created_by_name} · ` : ''}
+            {formatDateTime(list.created_at)}
           </p>
         </div>
         {isDone && <span className="badge badge-done">הושלם</span>}
@@ -110,11 +110,11 @@ export default function ListViewScreen() {
                       onChange={(e) => toggleChecked(li.id, e.target.checked)}
                     />
                     <span className="shopping-item-name">
-                      {li.nameSnapshot}
+                      {li.name_snapshot}
                       {li.quantity > 1 && <span className="qty-badge">× {li.quantity}</span>}
                       {li.unit && <span className="unit-badge">{li.unit}</span>}
                     </span>
-                    {li.brandOrNote && <span className="item-note">{li.brandOrNote}</span>}
+                    {li.brand_or_note && <span className="item-note">{li.brand_or_note}</span>}
                   </label>
                   {!isDone && (
                     <button

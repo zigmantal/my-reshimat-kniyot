@@ -1,37 +1,17 @@
 import { useCallback, useEffect, useState } from 'react';
-import {
-  db,
-  collection,
-  addDoc,
-  deleteDoc,
-  doc,
-  getDocs,
-  query,
-  orderBy,
-  serverTimestamp,
-} from '../firebase';
+import { supabase } from '../supabase';
 import type { CatalogItem } from '../types';
-
-function toCatalogItem(id: string, data: any): CatalogItem {
-  return {
-    id,
-    name: data.name,
-    categoryId: data.categoryId ?? null,
-    brandOrNote: data.brandOrNote ?? null,
-    defaultUnit: data.defaultUnit ?? null,
-    createdByEmail: data.createdByEmail ?? null,
-    createdAt: data.createdAt?.toMillis ? data.createdAt.toMillis() : Date.now(),
-  };
-}
 
 export function useCatalogItems() {
   const [items, setItems] = useState<CatalogItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   const reload = useCallback(async () => {
-    const q = query(collection(db, 'catalogItems'), orderBy('name', 'asc'));
-    const snap = await getDocs(q);
-    setItems(snap.docs.map((d) => toCatalogItem(d.id, d.data())));
+    const { data, error } = await supabase
+      .from('catalog_items')
+      .select('*')
+      .order('name', { ascending: true });
+    if (!error && data) setItems(data as CatalogItem[]);
     setLoading(false);
   }, []);
 
@@ -49,31 +29,30 @@ export function useCatalogItems() {
     }) => {
       const trimmed = input.name.trim();
       if (!trimmed) return null;
-      const docRef = await addDoc(collection(db, 'catalogItems'), {
-        name: trimmed,
-        categoryId: input.categoryId,
-        brandOrNote: input.brandOrNote || null,
-        defaultUnit: input.defaultUnit || null,
-        createdByEmail: input.email,
-        createdAt: serverTimestamp(),
-      });
+      const { data, error } = await supabase
+        .from('catalog_items')
+        .insert({
+          name: trimmed,
+          category_id: input.categoryId,
+          brand_or_note: input.brandOrNote || null,
+          default_unit: input.defaultUnit || null,
+          created_by_email: input.email,
+        })
+        .select()
+        .single();
+      if (error) {
+        console.error(error);
+        return null;
+      }
       await reload();
-      return {
-        id: docRef.id,
-        name: trimmed,
-        categoryId: input.categoryId,
-        brandOrNote: input.brandOrNote || null,
-        defaultUnit: input.defaultUnit || null,
-        createdByEmail: input.email,
-        createdAt: Date.now(),
-      };
+      return data as CatalogItem;
     },
     [reload]
   );
 
   const deleteItem = useCallback(
     async (id: string) => {
-      await deleteDoc(doc(db, 'catalogItems', id));
+      await supabase.from('catalog_items').delete().eq('id', id);
       await reload();
     },
     [reload]

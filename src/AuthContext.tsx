@@ -5,12 +5,13 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import type { User } from 'firebase/auth';
-import { auth, onAuthStateChanged } from './firebase';
+import type { Session, User } from '@supabase/supabase-js';
+import { supabase } from './supabase';
 import { isAllowedEmail } from './allowedMembers';
 
 interface AuthState {
   loading: boolean;
+  session: Session | null;
   user: User | null;
   /** המשתמש מחובר אבל לא ברשימת בני המשפחה המורשים */
   isBlocked: boolean;
@@ -18,26 +19,35 @@ interface AuthState {
 
 const AuthContext = createContext<AuthState>({
   loading: true,
+  session: null,
   user: null,
   isBlocked: false,
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-      setUser(firebaseUser);
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session);
       setLoading(false);
     });
-    return unsubscribe;
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, newSession) => {
+      setSession(newSession);
+      setLoading(false);
+    });
+
+    return () => listener.subscription.unsubscribe();
   }, []);
 
-  const isBlocked = !!user && !isAllowedEmail(user.email);
+  const user = session?.user ?? null;
+  const email = user?.email ?? null;
+  const isBlocked = !!user && !isAllowedEmail(email);
 
   return (
-    <AuthContext.Provider value={{ loading, user, isBlocked }}>
+    <AuthContext.Provider value={{ loading, session, user, isBlocked }}>
       {children}
     </AuthContext.Provider>
   );

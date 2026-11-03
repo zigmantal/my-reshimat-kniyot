@@ -1,43 +1,38 @@
-import { useEffect, useState } from 'react';
-import { db, collection, onSnapshot, query, where, orderBy } from '../firebase';
+import { useCallback, useEffect, useState } from 'react';
+import { supabase } from '../supabase';
 import type { ShoppingList, ListStatus } from '../types';
-
-function toShoppingList(id: string, data: any): ShoppingList {
-  return {
-    id,
-    title: data.title ?? null,
-    status: data.status,
-    createdByEmail: data.createdByEmail ?? null,
-    createdByName: data.createdByName ?? null,
-    createdAt: data.createdAt?.toMillis ? data.createdAt.toMillis() : Date.now(),
-    completedAt: data.completedAt?.toMillis ? data.completedAt.toMillis() : null,
-  };
-}
 
 export function useLists(status: ListStatus) {
   const [lists, setLists] = useState<ShoppingList[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const reload = useCallback(async () => {
     setLoading(true);
-    const q = query(
-      collection(db, 'lists'),
-      where('status', '==', status),
-      orderBy('createdAt', 'desc')
-    );
-    const unsubscribe = onSnapshot(
-      q,
-      (snap) => {
-        setLists(snap.docs.map((d) => toShoppingList(d.id, d.data())));
-        setLoading(false);
-      },
-      (err) => {
-        console.error(err);
-        setLoading(false);
-      }
-    );
-    return unsubscribe;
+    const { data, error } = await supabase
+      .from('lists')
+      .select('*')
+      .eq('status', status)
+      .order('created_at', { ascending: false });
+    if (!error && data) setLists(data as ShoppingList[]);
+    setLoading(false);
   }, [status]);
 
-  return { lists, loading };
+  useEffect(() => {
+    reload();
+
+    const channel = supabase
+      .channel(`lists-${status}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'lists' },
+        () => reload()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [reload, status]);
+
+  return { lists, loading, reload };
 }
