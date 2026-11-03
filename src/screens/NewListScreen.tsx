@@ -4,7 +4,7 @@ import { useCategories } from '../hooks/useCategories';
 import { useCatalogItems } from '../hooks/useCatalogItems';
 import { useLists } from '../hooks/useLists';
 import { useAuth } from '../AuthContext';
-import { supabase } from '../supabase';
+import { db, collection, addDoc, getDocs, query, orderBy, serverTimestamp } from '../firebase';
 import CatalogPicker from '../components/CatalogPicker';
 import type { CatalogItem } from '../types';
 import { formatListTitle } from '../utils';
@@ -27,8 +27,7 @@ export default function NewListScreen() {
   const [startFromOpen, setStartFromOpen] = useState(false);
 
   const email = user?.email ?? null;
-  const displayName =
-    (user?.user_metadata?.full_name as string | undefined) || user?.email || null;
+  const displayName = user?.displayName || user?.email || null;
 
   function pick(item: CatalogItem) {
     setStaged((prev) => {
@@ -52,15 +51,15 @@ export default function NewListScreen() {
   }
 
   async function startFromPastList(listId: string) {
-    const { data } = await supabase.from('list_items').select('*').eq('list_id', listId);
-    if (!data) return;
+    const snap = await getDocs(query(collection(db, 'lists', listId, 'items'), orderBy('createdAt', 'asc')));
     setStaged((prev) => {
       const next = new Map(prev);
-      for (const li of data as any[]) {
-        if (!li.catalog_item_id) continue;
-        const catalogItem = items.find((i) => i.id === li.catalog_item_id);
+      for (const d of snap.docs) {
+        const data = d.data() as any;
+        if (!data.catalogItemId) continue;
+        const catalogItem = items.find((i) => i.id === data.catalogItemId);
         if (!catalogItem) continue;
-        next.set(catalogItem.id, { item: catalogItem, quantity: li.quantity || 1 });
+        next.set(catalogItem.id, { item: catalogItem, quantity: data.quantity || 1 });
       }
       return next;
     });
@@ -70,39 +69,41 @@ export default function NewListScreen() {
   async function publish() {
     if (staged.size === 0 || publishing) return;
     setPublishing(true);
-    const { data: list, error } = await supabase
-      .from('lists')
-      .insert({
+    try {
+      const listRef = await addDoc(collection(db, 'lists'), {
         title: title.trim() || null,
         status: 'active',
-        created_by_email: email,
-        created_by_name: displayName,
-      })
-      .select()
-      .single();
+        createdByEmail: email,
+        createdByName: displayName,
+        createdAt: serverTimestamp(),
+        completedAt: null,
+      });
 
-    if (error || !list) {
-      setPublishing(false);
+      const categoryMap = new Map(categories.map((c) => [c.id, c.name]));
+      await Promise.all(
+        Array.from(staged.values()).map(({ item, quantity }) =>
+          addDoc(collection(db, 'lists', listRef.id, 'items'), {
+            catalogItemId: item.id,
+            nameSnapshot: item.name,
+            categoryId: item.categoryId,
+            categoryNameSnapshot: item.categoryId ? categoryMap.get(item.categoryId) ?? null : null,
+            brandOrNote: item.brandOrNote,
+            quantity,
+            unit: item.defaultUnit,
+            checked: false,
+            addedByEmail: email,
+            createdAt: serverTimestamp(),
+          })
+        )
+      );
+
+      navigate(`/list/${listRef.id}`);
+    } catch (e) {
+      console.error(e);
       alert('שגיאה ביצירת הרשימה, נסו שוב');
-      return;
+    } finally {
+      setPublishing(false);
     }
-
-    const categoryMap = new Map(categories.map((c) => [c.id, c.name]));
-    const rows = Array.from(staged.values()).map(({ item, quantity }) => ({
-      list_id: list.id,
-      catalog_item_id: item.id,
-      name_snapshot: item.name,
-      category_id: item.category_id,
-      category_name_snapshot: item.category_id ? categoryMap.get(item.category_id) ?? null : null,
-      brand_or_note: item.brand_or_note,
-      quantity,
-      unit: item.default_unit,
-      added_by_email: email,
-    }));
-
-    await supabase.from('list_items').insert(rows);
-    setPublishing(false);
-    navigate(`/list/${list.id}`);
   }
 
   const stagedArray = Array.from(staged.values());
@@ -155,7 +156,7 @@ export default function NewListScreen() {
                   <button onClick={() => setQuantity(item.id, quantity - 1)}>-</button>
                   <span>{quantity}</span>
                   <button onClick={() => setQuantity(item.id, quantity + 1)}>+</button>
-                  {item.default_unit && <span className="unit-label">{item.default_unit}</span>}
+                  {item.defaultUnit && <span className="unit-label">{item.defaultUnit}</span>}
                 </div>
                 <button className="remove-button" onClick={() => pick(item)} aria-label="הסרה">
                   ✕

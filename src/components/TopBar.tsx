@@ -1,11 +1,10 @@
 import { Link } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
-import { signOut } from '../supabase';
+import { signOut } from '../firebase';
 
 export default function TopBar() {
   const { user } = useAuth();
-  const displayName =
-    (user?.user_metadata?.full_name as string | undefined) || user?.email || '';
+  const displayName = user?.displayName || user?.email || '';
 
   return (
     <header className="top-bar">

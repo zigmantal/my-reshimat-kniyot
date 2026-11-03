@@ -36,7 +36,7 @@ export default function CatalogPicker({
     const q = query.trim().toLowerCase();
     for (const item of items) {
       if (q && !item.name.toLowerCase().includes(q)) continue;
-      const key = item.category_id;
+      const key = item.categoryId;
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(item);
     }
@@ -44,7 +44,7 @@ export default function CatalogPicker({
   }, [items, query]);
 
   const sortedCategories = useMemo(
-    () => [...categories].sort((a, b) => a.sort_order - b.sort_order),
+    () => [...categories].sort((a, b) => a.sortOrder - b.sortOrder),
     [categories]
   );
 
@@ -98,8 +98,8 @@ export default function CatalogPicker({
                     onClick={() => onPick(item)}
                   >
                     <span>{item.name}</span>
-                    {item.brand_or_note && (
-                      <span className="picker-item-note">{item.brand_or_note}</span>
+                    {item.brandOrNote && (
+                      <span className="picker-item-note">{item.brandOrNote}</span>
                     )}
                     <span className="picker-item-add">{picked ? '✓' : '+'}</span>
                   </button>

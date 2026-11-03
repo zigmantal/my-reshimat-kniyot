@@ -1,57 +1,88 @@
 import { useCallback, useEffect, useState } from 'react';
-import { supabase } from '../supabase';
+import {
+  db,
+  doc,
+  collection,
+  addDoc,
+  getDocs,
+  updateDoc,
+  deleteDoc,
+  onSnapshot,
+  query,
+  orderBy,
+  serverTimestamp,
+} from '../firebase';
 import type { ShoppingList, ListItem } from '../types';
+
+function toShoppingList(id: string, data: any): ShoppingList {
+  return {
+    id,
+    title: data.title ?? null,
+    status: data.status,
+    createdByEmail: data.createdByEmail ?? null,
+    createdByName: data.createdByName ?? null,
+    createdAt: data.createdAt?.toMillis ? data.createdAt.toMillis() : Date.now(),
+    completedAt: data.completedAt?.toMillis ? data.completedAt.toMillis() : null,
+  };
+}
+
+function toListItem(id: string, listId: string, data: any): ListItem {
+  return {
+    id,
+    listId,
+    catalogItemId: data.catalogItemId ?? null,
+    nameSnapshot: data.nameSnapshot,
+    categoryId: data.categoryId ?? null,
+    categoryNameSnapshot: data.categoryNameSnapshot ?? null,
+    brandOrNote: data.brandOrNote ?? null,
+    quantity: data.quantity ?? 1,
+    unit: data.unit ?? null,
+    checked: !!data.checked,
+    addedByEmail: data.addedByEmail ?? null,
+    createdAt: data.createdAt?.toMillis ? data.createdAt.toMillis() : Date.now(),
+  };
+}
 
 export function useListDetail(listId: string | undefined) {
   const [list, setList] = useState<ShoppingList | null>(null);
   const [items, setItems] = useState<ListItem[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const reload = useCallback(async () => {
-    if (!listId) return;
-    const [{ data: listData }, { data: itemsData }] = await Promise.all([
-      supabase.from('lists').select('*').eq('id', listId).maybeSingle(),
-      supabase
-        .from('list_items')
-        .select('*')
-        .eq('list_id', listId)
-        .order('created_at', { ascending: true }),
-    ]);
-    setList((listData as ShoppingList) ?? null);
-    setItems((itemsData as ListItem[]) ?? []);
-    setLoading(false);
-  }, [listId]);
-
   useEffect(() => {
-    reload();
     if (!listId) return;
+    setLoading(true);
 
-    const channel = supabase
-      .channel(`list-detail-${listId}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'list_items', filter: `list_id=eq.${listId}` },
-        () => reload()
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'lists', filter: `id=eq.${listId}` },
-        () => reload()
-      )
-      .subscribe();
+    const unsubList = onSnapshot(doc(db, 'lists', listId), (snap) => {
+      setList(snap.exists() ? toShoppingList(snap.id, snap.data()) : null);
+    });
+
+    const itemsQ = query(collection(db, 'lists', listId, 'items'), orderBy('createdAt', 'asc'));
+    const unsubItems = onSnapshot(itemsQ, (snap) => {
+      setItems(snap.docs.map((d) => toListItem(d.id, listId, d.data())));
+      setLoading(false);
+    });
 
     return () => {
-      supabase.removeChannel(channel);
+      unsubList();
+      unsubItems();
     };
-  }, [listId, reload]);
+  }, [listId]);
 
-  const toggleChecked = useCallback(async (itemId: string, checked: boolean) => {
-    await supabase.from('list_items').update({ checked }).eq('id', itemId);
-  }, []);
+  const toggleChecked = useCallback(
+    async (itemId: string, checked: boolean) => {
+      if (!listId) return;
+      await updateDoc(doc(db, 'lists', listId, 'items', itemId), { checked });
+    },
+    [listId]
+  );
 
-  const removeItem = useCallback(async (itemId: string) => {
-    await supabase.from('list_items').delete().eq('id', itemId);
-  }, []);
+  const removeItem = useCallback(
+    async (itemId: string) => {
+      if (!listId) return;
+      await deleteDoc(doc(db, 'lists', listId, 'items', itemId));
+    },
+    [listId]
+  );
 
   const addQuickItem = useCallback(
     async (input: {
@@ -65,16 +96,17 @@ export function useListDetail(listId: string | undefined) {
       unit: string | null;
       email: string | null;
     }) => {
-      await supabase.from('list_items').insert({
-        list_id: input.listId,
-        catalog_item_id: input.catalogItemId,
-        name_snapshot: input.nameSnapshot,
-        category_id: input.categoryId,
-        category_name_snapshot: input.categoryNameSnapshot,
-        brand_or_note: input.brandOrNote,
+      await addDoc(collection(db, 'lists', input.listId, 'items'), {
+        catalogItemId: input.catalogItemId,
+        nameSnapshot: input.nameSnapshot,
+        categoryId: input.categoryId,
+        categoryNameSnapshot: input.categoryNameSnapshot,
+        brandOrNote: input.brandOrNote,
         quantity: input.quantity,
         unit: input.unit,
-        added_by_email: input.email,
+        checked: false,
+        addedByEmail: input.email,
+        createdAt: serverTimestamp(),
       });
     },
     []
@@ -82,16 +114,21 @@ export function useListDetail(listId: string | undefined) {
 
   const markDone = useCallback(async () => {
     if (!listId) return;
-    await supabase
-      .from('lists')
-      .update({ status: 'done', completed_at: new Date().toISOString() })
-      .eq('id', listId);
+    await updateDoc(doc(db, 'lists', listId), {
+      status: 'done',
+      completedAt: serverTimestamp(),
+    });
   }, [listId]);
 
   const deleteList = useCallback(async () => {
     if (!listId) return;
-    await supabase.from('lists').delete().eq('id', listId);
+    // מחיקת כל הפריטים בתת-האוסף, ואז הרשימה עצמה
+    const itemsSnap = await getDocs(
+      query(collection(db, 'lists', listId, 'items'), orderBy('createdAt', 'asc'))
+    );
+    await Promise.all(itemsSnap.docs.map((d) => deleteDoc(d.ref)));
+    await deleteDoc(doc(db, 'lists', listId));
   }, [listId]);
 
-  return { list, items, loading, toggleChecked, removeItem, addQuickItem, markDone, deleteList, reload };
+  return { list, items, loading, toggleChecked, removeItem, addQuickItem, markDone, deleteList };
 }
