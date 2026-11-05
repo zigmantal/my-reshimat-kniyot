@@ -1,0 +1,82 @@
+{
+  "entities": {
+    "Category": {
+      "title": "Category",
+      "description": "Supermarket department/category for grouping items",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "maxLength": 100 },
+        "sortOrder": { "type": "number" },
+        "icon": { "type": "string", "maxLength": 50 },
+        "createdByEmail": { "type": "string", "maxLength": 200 },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["name", "sortOrder", "createdAt"]
+    },
+    "CatalogItem": {
+      "title": "CatalogItem",
+      "description": "Known item template that can be quickly added to shopping lists",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "maxLength": 100 },
+        "categoryId": { "type": "string", "maxLength": 128 },
+        "brandOrNote": { "type": "string", "maxLength": 200 },
+        "defaultUnit": { "type": "string", "maxLength": 50 },
+        "createdByEmail": { "type": "string", "maxLength": 200 },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["name", "createdAt"]
+    },
+    "ShoppingList": {
+      "title": "ShoppingList",
+      "description": "A shared family shopping list",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "maxLength": 200 },
+        "status": { "type": "string", "enum": ["active", "done"] },
+        "createdByEmail": { "type": "string", "maxLength": 200 },
+        "createdByName": { "type": "string", "maxLength": 200 },
+        "createdAt": { "type": "number" },
+        "completedAt": { "type": "number" }
+      },
+      "required": ["status", "createdAt"]
+    },
+    "ListItem": {
+      "title": "ListItem",
+      "description": "An item inside a shopping list",
+      "type": "object",
+      "properties": {
+        "listId": { "type": "string", "maxLength": 128 },
+        "catalogItemId": { "type": "string", "maxLength": 128 },
+        "nameSnapshot": { "type": "string", "maxLength": 100 },
+        "categoryId": { "type": "string", "maxLength": 128 },
+        "categoryNameSnapshot": { "type": "string", "maxLength": 100 },
+        "brandOrNote": { "type": "string", "maxLength": 200 },
+        "quantity": { "type": "number" },
+        "unit": { "type": "string", "maxLength": 50 },
+        "checked": { "type": "boolean" },
+        "addedByEmail": { "type": "string", "maxLength": 200 },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["listId", "nameSnapshot", "quantity", "checked", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/categories/{categoryId}": {
+      "schema": "Category",
+      "description": "Global catalog of supermarket categories"
+    },
+    "/catalogItems/{itemId}": {
+      "schema": "CatalogItem",
+      "description": "Shared product catalog for quick shopping list building"
+    },
+    "/lists/{listId}": {
+      "schema": "ShoppingList",
+      "description": "Shopping lists"
+    },
+    "/lists/{listId}/items/{itemId}": {
+      "schema": "ListItem",
+      "description": "Items in a specific shopping list"
+    }
+  }
+}
