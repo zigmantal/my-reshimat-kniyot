@@ -10,10 +10,8 @@ service cloud.firestore {
 
     function isFamilyMember() {
       return request.auth != null && request.auth.token.email in [
-        'zigman.tal@gmail.com'
-        // הוסיפו כאן מיילים נוספים של בני משפחה, מופרדים בפסיק, לדוגמה:
-        // , 'spouse@gmail.com'
-        // , 'kid@gmail.com'
+        'zigman.tal@gmail.com',
+        'yafitz583@gmail.com'
       ];
     }
 
