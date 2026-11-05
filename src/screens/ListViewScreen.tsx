@@ -5,7 +5,7 @@ import { useCategories } from '../hooks/useCategories';
 import { useCatalogItems } from '../hooks/useCatalogItems';
 import { useAuth } from '../AuthContext';
 import CatalogPicker from '../components/CatalogPicker';
-import { formatListTitle, formatDateTime } from '../utils';
+import { formatListTitle, formatDateTime, buildWhatsappListText, buildWhatsappShareUrl } from '../utils';
 import type { CatalogItem } from '../types';
 
 export default function ListViewScreen() {
@@ -109,6 +109,11 @@ export default function ListViewScreen() {
     }
   }
 
+  function handleShareWhatsapp() {
+    const text = buildWhatsappListText(list!, items);
+    window.open(buildWhatsappShareUrl(text), '_blank', 'noopener,noreferrer');
+  }
+
   return (
     <div className="list-view-screen">
       <div className="list-view-header">
@@ -121,6 +126,10 @@ export default function ListViewScreen() {
         </div>
         {isDone && <span className="badge badge-done">הושלם</span>}
       </div>
+
+      <button className="secondary-button whatsapp-share-button" onClick={handleShareWhatsapp}>
+        📤 שיתוף ב-WhatsApp
+      </button>
 
       {grouped.length === 0 ? (
         <div className="empty-state">
