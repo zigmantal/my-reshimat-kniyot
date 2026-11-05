@@ -1,29 +1,88 @@
-import { useState } from 'react';
-import { signInWithGoogle, signOut } from '../firebase';
+import { useEffect, useRef, useState } from 'react';
+import { signInWithGoogle, signInWithGoogleIdToken, signOut } from '../firebase';
+import { GOOGLE_CLIENT_ID } from '../googleClientId';
+
+function errorToMessage(err: any): string {
+  if (err?.code === 'auth/popup-blocked') {
+    return 'החלון הקופץ להתחברות נחסם על ידי הדפדפן. אנא אפשרו חלונות קופצים (Pop-ups) או פתחו את האפליקציה בלשונית נפרדת.';
+  }
+  if (err?.code === 'auth/popup-closed-by-user') {
+    return 'ההתחברות בוטלה.';
+  }
+  return err?.message || 'שגיאה בהתחברות עם Google. אנא נסו שוב.';
+}
 
 export default function LoginScreen({ blocked = false }: { blocked?: boolean }) {
+  const buttonContainerRef = useRef<HTMLDivElement>(null);
+  const [gisReady, setGisReady] = useState(false);
   const [signingIn, setSigningIn] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [showPopupFallback, setShowPopupFallback] = useState(false);
   const isIframe = typeof window !== 'undefined' && window.self !== window.top;
 
-  const handleLogin = async () => {
+  // אתחול Google Identity Services. זרימה זו (ID token, ללא popup/redirect
+  // חוצה-דומיינים) אמינה גם בדפדפני iOS (Safari/Chrome-על-iOS), בניגוד
+  // ל-signInWithPopup הרגיל של Firebase שנכשל שם בגלל חלוקת אחסון (ITP).
+  useEffect(() => {
+    let cancelled = false;
+
+    async function handleCredentialResponse(response: { credential: string }) {
+      try {
+        setSigningIn(true);
+        setErrorMsg(null);
+        await signInWithGoogleIdToken(response.credential);
+      } catch (err) {
+        console.error('Google Sign In (GSI) failed:', err);
+        setErrorMsg(errorToMessage(err));
+      } finally {
+        setSigningIn(false);
+      }
+    }
+
+    function tryInit() {
+      if (cancelled) return;
+      if (!window.google?.accounts?.id) {
+        setTimeout(tryInit, 150);
+        return;
+      }
+      window.google.accounts.id.initialize({
+        client_id: GOOGLE_CLIENT_ID,
+        callback: handleCredentialResponse,
+        itp_support: true, // תמיכה ייעודית בחלוקת אחסון (ITP) בדפדפני iOS/Safari
+      });
+      if (buttonContainerRef.current) {
+        window.google.accounts.id.renderButton(buttonContainerRef.current, {
+          type: 'standard',
+          theme: 'filled_blue',
+          size: 'large',
+          text: 'signin_with',
+          shape: 'pill',
+          logo_alignment: 'center',
+          width: 280,
+          locale: 'he',
+        });
+      }
+      setGisReady(true);
+    }
+
+    tryInit();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function handlePopupLogin() {
     try {
       setSigningIn(true);
       setErrorMsg(null);
       await signInWithGoogle();
-    } catch (err: any) {
-      console.error('Google Sign In failed:', err);
-      if (err?.code === 'auth/popup-blocked') {
-        setErrorMsg('החלון הקופץ להתחברות נחסם על ידי הדפדפן. אנא אפשרו חלונות קופצים (Pop-ups) או פתחו את האפליקציה בלשונית נפרדת.');
-      } else if (err?.code === 'auth/popup-closed-by-user') {
-        setErrorMsg('ההתחברות בוטלה.');
-      } else {
-        setErrorMsg(err?.message || 'שגיאה בהתחברות עם Google. אנא נסו שוב.');
-      }
+    } catch (err) {
+      console.error('Google Sign In (popup) failed:', err);
+      setErrorMsg(errorToMessage(err));
     } finally {
       setSigningIn(false);
     }
-  };
+  }
 
   return (
     <div className="centered-screen login-screen">
@@ -42,25 +101,38 @@ export default function LoginScreen({ blocked = false }: { blocked?: boolean }) 
         ) : (
           <>
             <p>התחברו עם חשבון Google כדי לצפות ברשימות המשפחה ולנהל אותן.</p>
-            
+
             {errorMsg && (
               <div style={{ color: 'var(--danger)', fontSize: '13px', marginBottom: '16px', lineHeight: 1.4 }}>
                 {errorMsg}
               </div>
             )}
 
-            <button
-              className="primary-button"
-              onClick={handleLogin}
-              disabled={signingIn}
-              style={{ width: '100%', marginBottom: '12px' }}
-            >
-              {signingIn ? 'מתחבר...' : 'התחברות עם Google'}
-            </button>
+            {signingIn && <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>מתחבר...</p>}
+
+            {/* כפתור Google הרשמי (Google Identity Services) */}
+            <div
+              ref={buttonContainerRef}
+              style={{ display: 'flex', justifyContent: 'center', marginBottom: '12px', minHeight: 44 }}
+            />
+
+            {!gisReady && (
+              <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>טוען כפתור התחברות...</p>
+            )}
+
+            {showPopupFallback ? (
+              <button className="primary-button" onClick={handlePopupLogin} disabled={signingIn} style={{ width: '100%' }}>
+                התחברות עם Google (חלון קופץ)
+              </button>
+            ) : (
+              <button className="link-button" onClick={() => setShowPopupFallback(true)}>
+                הכפתור לא עובד? נסו דרך חלון קופץ
+              </button>
+            )}
 
             {isIframe && (
               <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--border)', fontSize: '12.5px', color: 'var(--text-muted)' }}>
-                <span>אם החלון הקופץ נחסם בתצוגה המקדימה, </span>
+                <span>אם ההתחברות לא עובדת בתצוגה המקדימה, </span>
                 <a
                   href={window.location.href}
                   target="_blank"

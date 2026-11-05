@@ -3,6 +3,7 @@ import {
   getAuth,
   GoogleAuthProvider,
   signInWithPopup as fbSignInWithPopup,
+  signInWithCredential,
   signOut as fbSignOut,
   onAuthStateChanged,
 } from 'firebase/auth';
@@ -50,8 +51,26 @@ const googleProvider = new GoogleAuthProvider();
 // מבקש תמיד לבחור חשבון, שימושי כאשר כמה בני משפחה חולקים מכשיר/דפדפן
 googleProvider.setCustomParameters({ prompt: 'select_account' });
 
+/**
+ * כניסה דרך חלון קופץ (signInWithPopup) של Firebase.
+ * עובד היטב ב-Chrome/Edge/Firefox על מחשב, אבל לא אמין בדפדפני iOS
+ * (Safari/Chrome/כל דפדפן ב-iOS משתמש במנוע WebKit) בגלל חלוקת
+ * אחסון (storage partitioning) בין הדומיין של האפליקציה לדומיין
+ * ה-Auth של Firebase (*.firebaseapp.com). לכן זו רק חלופת גיבוי —
+ * ראו signInWithGoogleIdToken לכניסה הראשית, שמתאימה גם ל-iOS.
+ */
 export async function signInWithGoogle() {
   return fbSignInWithPopup(auth, googleProvider);
+}
+
+/**
+ * כניסה עם ID token שהתקבל מ-Google Identity Services (GSI) בצד הלקוח.
+ * זרימה זו לא תלויה בחלון קופץ/redirect חוצה-דומיינים, ולכן אמינה
+ * הרבה יותר בדפדפני iOS (ראו src/screens/LoginScreen.tsx).
+ */
+export async function signInWithGoogleIdToken(idToken: string) {
+  const credential = GoogleAuthProvider.credential(idToken);
+  return signInWithCredential(auth, credential);
 }
 
 export async function signOut() {
