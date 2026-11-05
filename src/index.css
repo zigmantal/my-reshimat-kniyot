@@ -567,6 +567,21 @@ select {
   margin: 10px 0 20px;
 }
 
+.quick-add-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.quick-add-input {
+  flex: 1;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 11px 14px;
+  font-size: 14.5px;
+  background: var(--card);
+}
+
 .add-item-panel {
   background: var(--card);
   border: 1px solid var(--border);

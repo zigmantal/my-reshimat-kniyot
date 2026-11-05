@@ -17,6 +17,8 @@ export default function ListViewScreen() {
   const { categories, addCategory } = useCategories();
   const { items: catalogItems, addItem } = useCatalogItems();
   const [addingOpen, setAddingOpen] = useState(false);
+  const [quickText, setQuickText] = useState('');
+  const [quickAdding, setQuickAdding] = useState(false);
 
   const email = user?.email ?? null;
 
@@ -63,6 +65,35 @@ export default function ListViewScreen() {
       unit: item.defaultUnit,
       email,
     });
+  }
+
+  async function handleQuickAdd() {
+    const name = quickText.trim();
+    if (!name || !listId || quickAdding) return;
+    setQuickAdding(true);
+    try {
+      const categoryMap = new Map(categories.map((c) => [c.id, c.name]));
+      // חיפוש פריט קיים בקטלוג עם אותו שם (ללא תלות ברישיות), כדי לא
+      // ליצור כפילויות אם הפריט כבר קיים
+      const existing = catalogItems.find((i) => i.name.trim().toLowerCase() === name.toLowerCase());
+      const catalogItem = existing ?? (await addItem({ name, categoryId: null, email }));
+      if (!catalogItem) return;
+
+      await addQuickItem({
+        listId,
+        nameSnapshot: catalogItem.name,
+        categoryId: catalogItem.categoryId,
+        categoryNameSnapshot: catalogItem.categoryId ? categoryMap.get(catalogItem.categoryId) ?? null : null,
+        catalogItemId: catalogItem.id,
+        brandOrNote: catalogItem.brandOrNote,
+        quantity: 1,
+        unit: catalogItem.defaultUnit,
+        email,
+      });
+      setQuickText('');
+    } finally {
+      setQuickAdding(false);
+    }
   }
 
   async function handleMarkDone() {
@@ -134,6 +165,29 @@ export default function ListViewScreen() {
 
       {!isDone && (
         <>
+          <div className="quick-add-row">
+            <input
+              type="text"
+              className="quick-add-input"
+              placeholder="הוספה מהירה — הקלידו שם פריט..."
+              value={quickText}
+              onChange={(e) => setQuickText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleQuickAdd();
+                }
+              }}
+            />
+            <button
+              className="primary-button small"
+              onClick={handleQuickAdd}
+              disabled={!quickText.trim() || quickAdding}
+            >
+              הוספה
+            </button>
+          </div>
+
           {addingOpen ? (
             <div className="add-item-panel">
               <div className="add-item-panel-header">
@@ -153,7 +207,7 @@ export default function ListViewScreen() {
             </div>
           ) : (
             <button className="secondary-button add-item-trigger" onClick={() => setAddingOpen(true)}>
-              + הוסף פריט
+              עיון בקטלוג המלא
             </button>
           )}
 
