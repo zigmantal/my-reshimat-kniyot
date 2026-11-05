@@ -23,11 +23,27 @@ import {
   serverTimestamp,
 } from 'firebase/firestore';
 
-// @ts-ignore
-import firebaseConfig from '../firebase-applet-config.json';
+// Environment variables take highest priority (for GitHub repo deployments).
+// Falls back to local firebase-applet-config.json when running in AI Studio.
+const localConfigFiles = import.meta.glob<{ default: Record<string, string> }>(
+  '../firebase-applet-config.json',
+  { eager: true }
+);
+const localConfig = localConfigFiles['../firebase-applet-config.json']?.default || {};
+
+const firebaseConfig = {
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || localConfig.apiKey || '',
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || localConfig.authDomain || '',
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || localConfig.projectId || '',
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || localConfig.storageBucket || '',
+  messagingSenderId:
+    import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || localConfig.messagingSenderId || '',
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || localConfig.appId || '',
+  firestoreDatabaseId:
+    import.meta.env.VITE_FIREBASE_DATABASE_ID || localConfig.firestoreDatabaseId || '(default)',
+};
 
 const app = initializeApp(firebaseConfig);
-// @ts-ignore
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId || undefined);
 export const auth = getAuth(app);
 const googleProvider = new GoogleAuthProvider();
