@@ -65,9 +65,31 @@ Rules, הדביקו את תוכן הקובץ `firestore.rules` ולחצו Publis
 
 ערכו **שני מקומות** (שניהם חייבים להיות מסונכרנים):
 
-- `src/allowedMembers.ts` — משפיע על חוויית המשתמש בצד הלקוח.
+- `src/allowedMembers.ts` — קובץ מקומי שאינו ב-git (ראו תבנית
+  ב-`src/allowedMembers.example.ts`; העתיקו אותה ל-`src/allowedMembers.ts`
+  ומלאו את המיילים). משפיע על חוויית המשתמש בצד הלקוח בלבד.
 - `firestore.rules` (הפונקציה `isFamilyMember()`) — האכיפה האמיתית
   בצד השרת. אחרי עריכה יש לפרסם מחדש (Publish) ב-Firebase Console.
+
+### 4. התחברות עם שם משתמש וסיסמה (אופציונלי, בנוסף ל-Google)
+
+בנוסף ל-Google Sign-In, יש גם אפשרות כניסה עם מייל+סיסמה (ספק נפרד
+ב-Firebase Auth, "Email/Password"). הסיסמה **לא נשמרת בקוד/ב-git בשום
+שלב** — Firebase שומר אותה (מוצפנת) בצד שלו, בדיוק כמו שהוא כבר עושה
+עבור Google.
+
+1. ב-[Firebase Console](https://console.firebase.google.com/) → Build →
+   Authentication → Sign-in method → הפעילו **Email/Password**.
+2. באותו עמוד → טאב Users → **Add user** → הזינו מייל (למשל
+   `admin@reshimat-kniyot.app` — לא חייב להיות תיבת מייל אמיתית, רק
+   בפורמט תקין) וסיסמה.
+3. הוסיפו את אותו המייל גם ל-`src/allowedMembers.ts` וגם לפונקציה
+   `isFamilyMember()` ב-`firestore.rules` (כבר בוצע עבור
+   `admin@reshimat-kniyot.app` בברירת המחדל של הריפו — שנו אם תרצו
+   מייל/סיסמה אחרים).
+
+לאחר מכן, במסך ההתחברות באפליקציה יופיע קישור "התחברות עם שם משתמש
+וסיסמה" מתחת לכפתורי ה-Google.
 
 ## 💻 פיתוח מקומי
 
@@ -86,7 +108,8 @@ npm run dev
 firebase-applet-config.json   # הגדרות פרויקט Firebase (מוחלף אוטומטית ע״י AI Studio)
 firestore.rules               # כללי אבטחה — הדביקו ל-Firebase Console
 src/
-  allowedMembers.ts    # רשימת מיילים מורשים (עריכה ידנית, צד לקוח)
+  allowedMembers.example.ts  # תבנית לרשימת המיילים המורשים
+  allowedMembers.ts    # רשימת מיילים מורשים בפועל (לא ב-git, עריכה ידנית)
   firebase.ts          # לקוח Firebase (Auth + Firestore) + helpers להתחברות
   seedData.ts           # תוכן הזריעה (קטגוריות + מוצרים)
   seedDatabase.ts        # לוגיקת הזריעה החד-פעמית

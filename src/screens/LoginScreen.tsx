@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { signInWithGoogle, signInWithGoogleIdToken, signOut } from '../firebase';
+import { signInWithGoogle, signInWithGoogleIdToken, signInWithEmail, signOut } from '../firebase';
 import { GOOGLE_CLIENT_ID } from '../googleClientId';
 
 function errorToMessage(err: any): string {
@@ -9,7 +9,16 @@ function errorToMessage(err: any): string {
   if (err?.code === 'auth/popup-closed-by-user') {
     return 'ההתחברות בוטלה.';
   }
-  return err?.message || 'שגיאה בהתחברות עם Google. אנא נסו שוב.';
+  if (err?.code === 'auth/invalid-credential' || err?.code === 'auth/wrong-password') {
+    return 'שם משתמש או סיסמה שגויים.';
+  }
+  if (err?.code === 'auth/user-not-found') {
+    return 'לא נמצא משתמש עם כתובת המייל הזו.';
+  }
+  if (err?.code === 'auth/too-many-requests') {
+    return 'יותר מדי ניסיונות כניסה. נסו שוב בעוד כמה דקות.';
+  }
+  return err?.message || 'שגיאה בהתחברות. אנא נסו שוב.';
 }
 
 export default function LoginScreen({ blocked = false }: { blocked?: boolean }) {
@@ -18,6 +27,9 @@ export default function LoginScreen({ blocked = false }: { blocked?: boolean }) 
   const [signingIn, setSigningIn] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [showPopupFallback, setShowPopupFallback] = useState(false);
+  const [showPasswordForm, setShowPasswordForm] = useState(false);
+  const [emailInput, setEmailInput] = useState('');
+  const [passwordInput, setPasswordInput] = useState('');
   const isIframe = typeof window !== 'undefined' && window.self !== window.top;
 
   // אתחול Google Identity Services. זרימה זו (ID token, ללא popup/redirect
@@ -84,6 +96,21 @@ export default function LoginScreen({ blocked = false }: { blocked?: boolean }) 
     }
   }
 
+  async function handlePasswordLogin(e: React.FormEvent) {
+    e.preventDefault();
+    if (!emailInput.trim() || !passwordInput) return;
+    try {
+      setSigningIn(true);
+      setErrorMsg(null);
+      await signInWithEmail(emailInput.trim(), passwordInput);
+    } catch (err) {
+      console.error('Email/password sign in failed:', err);
+      setErrorMsg(errorToMessage(err));
+    } finally {
+      setSigningIn(false);
+    }
+  }
+
   return (
     <div className="centered-screen login-screen">
       <div className="login-card">
@@ -129,6 +156,43 @@ export default function LoginScreen({ blocked = false }: { blocked?: boolean }) 
                 הכפתור לא עובד? נסו דרך חלון קופץ
               </button>
             )}
+
+            <div style={{ marginTop: '18px', paddingTop: '18px', borderTop: '1px solid var(--border)' }}>
+              {showPasswordForm ? (
+                <form onSubmit={handlePasswordLogin} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <input
+                    type="email"
+                    placeholder="מייל"
+                    className="title-input"
+                    style={{ marginBottom: 0 }}
+                    value={emailInput}
+                    onChange={(e) => setEmailInput(e.target.value)}
+                    autoComplete="username"
+                  />
+                  <input
+                    type="password"
+                    placeholder="סיסמה"
+                    className="title-input"
+                    style={{ marginBottom: 0 }}
+                    value={passwordInput}
+                    onChange={(e) => setPasswordInput(e.target.value)}
+                    autoComplete="current-password"
+                  />
+                  <button
+                    type="submit"
+                    className="primary-button"
+                    disabled={signingIn || !emailInput.trim() || !passwordInput}
+                    style={{ width: '100%' }}
+                  >
+                    התחברות
+                  </button>
+                </form>
+              ) : (
+                <button className="link-button" onClick={() => setShowPasswordForm(true)}>
+                  התחברות עם שם משתמש וסיסמה
+                </button>
+              )}
+            </div>
 
             {isIframe && (
               <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--border)', fontSize: '12.5px', color: 'var(--text-muted)' }}>

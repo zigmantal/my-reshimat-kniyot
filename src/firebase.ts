@@ -4,6 +4,7 @@ import {
   GoogleAuthProvider,
   signInWithPopup as fbSignInWithPopup,
   signInWithCredential,
+  signInWithEmailAndPassword,
   signOut as fbSignOut,
   onAuthStateChanged,
 } from 'firebase/auth';
@@ -71,6 +72,16 @@ export async function signInWithGoogle() {
 export async function signInWithGoogleIdToken(idToken: string) {
   const credential = GoogleAuthProvider.credential(idToken);
   return signInWithCredential(auth, credential);
+}
+
+/**
+ * כניסה עם מייל + סיסמה (Firebase Auth, ספק Email/Password) — אופציה
+ * נפרדת מהתחברות Google. יש להפעיל את הספק "Email/Password" ב-Firebase
+ * Console → Authentication → Sign-in method, וליצור את המשתמש שם (או
+ * דרך הרשמה חד-פעמית) — הסיסמה עצמה לעולם לא נשמרת בקוד/ב-git.
+ */
+export async function signInWithEmail(email: string, password: string) {
+  return signInWithEmailAndPassword(auth, email, password);
 }
 
 export async function signOut() {

@@ -11,7 +11,8 @@ service cloud.firestore {
     function isFamilyMember() {
       return request.auth != null && request.auth.token.email in [
         'zigman.tal@gmail.com',
-        'yafitz583@gmail.com'
+        'yafitz583@gmail.com',
+        'admin@reshimat-kniyot.app' // חשבון כניסה עם שם משתמש/סיסמה - ראו README
       ];
     }
 

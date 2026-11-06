@@ -4,6 +4,8 @@
  */
 export const ALLOWED_EMAILS: string[] = [
   'example@gmail.com',
+  // חשבון כניסה עם שם משתמש/סיסמה (ולא Google) - ראו README לאופן יצירתו
+  'admin@reshimat-kniyot.app',
 ];
 
 export function isAllowedEmail(email: string | null | undefined): boolean {
