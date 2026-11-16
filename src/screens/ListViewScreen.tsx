@@ -1,10 +1,12 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useListDetail } from '../hooks/useListDetail';
 import { useCategories } from '../hooks/useCategories';
 import { useCatalogItems } from '../hooks/useCatalogItems';
 import { useAuth } from '../AuthContext';
 import CatalogPicker from '../components/CatalogPicker';
+import ProgressBar from '../components/ProgressBar';
+import Confetti from '../components/Confetti';
 import { formatListTitle, formatDateTime, buildWhatsappListText, buildWhatsappShareUrl } from '../utils';
 import type { CatalogItem } from '../types';
 
@@ -31,6 +33,23 @@ export default function ListViewScreen() {
     }
     return Array.from(map.entries());
   }, [items]);
+
+  const totalCount = items.length;
+  const checkedCount = useMemo(() => items.filter((i) => i.checked).length, [items]);
+  const [celebrate, setCelebrate] = useState(false);
+  const wasComplete = useRef<boolean | null>(null);
+  const stopCelebrating = useCallback(() => setCelebrate(false), []);
+  const listIsDone = list?.status === 'done';
+
+  // חגיגה רק ברגע שהפריט האחרון מסומן (לא כשפותחים רשימה שכבר הושלמה)
+  useEffect(() => {
+    if (loading) return;
+    const complete = totalCount > 0 && checkedCount === totalCount;
+    if (wasComplete.current === false && complete && !listIsDone) {
+      setCelebrate(true);
+    }
+    wasComplete.current = complete;
+  }, [loading, totalCount, checkedCount, listIsDone]);
 
   if (loading) {
     return (
@@ -126,6 +145,9 @@ export default function ListViewScreen() {
         </div>
         {isDone && <span className="badge badge-done">הושלם</span>}
       </div>
+
+      <ProgressBar done={checkedCount} total={totalCount} />
+      {celebrate && <Confetti onDone={stopCelebrating} />}
 
       <button className="secondary-button whatsapp-share-button" onClick={handleShareWhatsapp}>
         📤 שיתוף ב-WhatsApp
